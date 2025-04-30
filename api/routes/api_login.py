@@ -138,7 +138,7 @@ async def delete_account(service: UserService = Provide[Container.user_service])
         return "さようなら"
 
     except CustomQSportException as e:
-        logger.error(f"Error in DELETE /: {str(e)}")
+        logger.error(f"Error in DELETE /delete: {str(e)}")
         return get_custom_error_response(e)
     
 @login_app.route("/change-username", methods=['PATCH'])
