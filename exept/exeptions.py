@@ -183,8 +183,8 @@ class ArticleNotFoundError(CustomQSportException):
         message = f"Article with blob_id {blob_id} not found"
         super().__init__(message)
 
-class PizdecError(CustomQSportException):
+class InvalidRefreshTokenError(CustomQSportException):
     status_code = 400
 
-    def __init__(self, message="Pizdec"):
+    def __init__(self, message="Invalid refresh token"):
         super().__init__(message)
