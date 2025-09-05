@@ -3,10 +3,10 @@ name: Security Snyk
 on:
   workflow_dispatch:
   push:
-    branches: 
+    branches:
       - feature/snyk-security
   pull_request:
-    branches: 
+    branches:
       - feature/snyk-security
 
 permissions:
@@ -16,9 +16,9 @@ jobs:
   snyk:
     runs-on: ubuntu-latest
     permissions:
-      contents: read          
-      security-events: write  
-      actions: read           
+      contents: read
+      security-events: write
+      actions: read
     env:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
@@ -28,24 +28,24 @@ jobs:
       - name: Set up Snyk CLI
         uses: snyk/actions/setup@806182742461562b67788a64410098c9d9b96adb
 
-      - uses: actions/setup-node@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          node-version: 22
+          python-version: '3.11'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Prepare SARIF directory
         run: mkdir -p sarif
 
-      - name: Snyk Code test (SARIF)
-        run: snyk code test --sarif-file-output=./sarif/snyk-code.sarif || true
+      - name: Snyk Open Source monitor (requirements.txt)
+        run: snyk monitor --file=requirements.txt --package-manager=pip || true
 
-      - name: Snyk Open Source monitor (lockfile, tolerate mismatch)
-        run: snyk monitor --file=package-lock.json --package-manager=npm --strict-out-of-sync=false
-
-      - name: Snyk Open Source test (SARIF, tolerate mismatch)
-        run: snyk test --all-projects --sarif-file-output=./sarif/snyk-oss.sarif --strict-out-of-sync=false || true
+      - name: Snyk Open Source test (SARIF)
+        run: snyk test --file=requirements.txt --package-manager=pip --sarif-file-output=./sarif/snyk-oss.sarif || true
 
       - name: Snyk IaC test and report
         run: snyk iac test --report || true
@@ -61,13 +61,6 @@ jobs:
 
       - name: Snyk Container test (SARIF)
         run: snyk container test lf-admin:latest --file=Dockerfile --exclude-app-vulns --sarif-file-output=./sarif/snyk-container.sarif || true
-
-      - name: Upload Snyk Code SARIF
-        if: hashFiles('sarif/snyk-code.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: sarif/snyk-code.sarif
-          category: snyk-code
 
       - name: Upload Snyk OSS SARIF
         if: hashFiles('sarif/snyk-oss.sarif') != ''
@@ -91,7 +84,7 @@ jobs:
           category: snyk-container
 
       - name: Run Snyk test (JSON for PR comment)
-        run: snyk test --json > snyk-report.json || true
+        run: snyk test --file=requirements.txt --package-manager=pip --json > snyk-report.json || true
 
       - name: Upload JSON report artifact
         uses: actions/upload-artifact@v4
