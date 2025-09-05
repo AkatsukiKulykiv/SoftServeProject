@@ -1,0 +1,120 @@
+name: Security Snyk
+
+on:
+  workflow_dispatch:
+  push:
+    branches: 
+      - feature/snyk-security
+  pull_request:
+    branches: 
+      - feature/snyk-security
+
+permissions:
+  contents: read
+
+jobs:
+  snyk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read          
+      security-events: write  
+      actions: read           
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Snyk CLI
+        uses: snyk/actions/setup@806182742461562b67788a64410098c9d9b96adb
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare SARIF directory
+        run: mkdir -p sarif
+
+      - name: Snyk Code test (SARIF)
+        run: snyk code test --sarif-file-output=./sarif/snyk-code.sarif || true
+
+      - name: Snyk Open Source monitor (lockfile, tolerate mismatch)
+        run: snyk monitor --file=package-lock.json --package-manager=npm --strict-out-of-sync=false
+
+      - name: Snyk Open Source test (SARIF, tolerate mismatch)
+        run: snyk test --all-projects --sarif-file-output=./sarif/snyk-oss.sarif --strict-out-of-sync=false || true
+
+      - name: Snyk IaC test and report
+        run: snyk iac test --report || true
+
+      - name: Snyk IaC test (SARIF)
+        run: snyk iac test --sarif-file-output=./sarif/snyk-iac.sarif || true
+
+      - name: Build a Docker image
+        run: docker build -t lf-admin:latest .
+
+      - name: Snyk Container monitor
+        run: snyk container monitor lf-admin:latest --file=Dockerfile
+
+      - name: Snyk Container test (SARIF)
+        run: snyk container test lf-admin:latest --file=Dockerfile --exclude-app-vulns --sarif-file-output=./sarif/snyk-container.sarif || true
+
+      - name: Upload Snyk Code SARIF
+        if: hashFiles('sarif/snyk-code.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: sarif/snyk-code.sarif
+          category: snyk-code
+
+      - name: Upload Snyk OSS SARIF
+        if: hashFiles('sarif/snyk-oss.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: sarif/snyk-oss.sarif
+          category: snyk-oss
+
+      - name: Upload Snyk IaC SARIF
+        if: hashFiles('sarif/snyk-iac.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: sarif/snyk-iac.sarif
+          category: snyk-iac
+
+      - name: Upload Snyk Container SARIF
+        if: hashFiles('sarif/snyk-container.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: sarif/snyk-container.sarif
+          category: snyk-container
+
+      - name: Run Snyk test (JSON for PR comment)
+        run: snyk test --json > snyk-report.json || true
+
+      - name: Upload JSON report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: snyk-json-report
+          path: snyk-report.json
+
+      - name: Format Snyk Report for PR
+        if: github.event_name == 'pull_request'
+        id: snyk-report
+        run: |
+          echo "## 🛡️ Snyk Security Report" > report.md
+          echo "" >> report.md
+          if [ -s snyk-report.json ]; then
+            jq -r '.vulnerabilities[] | "- **\(.severity | ascii_upcase)**: \(.title) (\(.packageName)@\(.version))"' snyk-report.json >> report.md || echo "⚠️ Failed to parse snyk-report.json" >> report.md
+          else
+            echo "✅ No vulnerabilities found" >> report.md
+          fi
+          echo "" >> report.md
+          echo "🔗 [Full report attached in Actions artifacts]" >> report.md
+
+      - name: Comment on PR with Snyk results
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: report.md
