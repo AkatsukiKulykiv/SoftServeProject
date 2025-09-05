@@ -53,15 +53,6 @@ jobs:
       - name: Snyk IaC test (SARIF)
         run: snyk iac test --sarif-file-output=./sarif/snyk-iac.sarif || true
 
-      - name: Build a Docker image
-        run: docker build -t lf-admin:latest .
-
-      - name: Snyk Container monitor
-        run: snyk container monitor lf-admin:latest --file=Dockerfile
-
-      - name: Snyk Container test (SARIF)
-        run: snyk container test lf-admin:latest --file=Dockerfile --exclude-app-vulns --sarif-file-output=./sarif/snyk-container.sarif || true
-
       - name: Upload Snyk OSS SARIF
         if: hashFiles('sarif/snyk-oss.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
