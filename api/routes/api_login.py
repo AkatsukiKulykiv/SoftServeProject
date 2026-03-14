@@ -4,7 +4,7 @@ from flask_smorest import Blueprint
 from dto.api_input import InputUserDTO, InputUserByEmailDTO, NewPasswordDTO, InputUserLogInDTO
 from dto.api_output import OutputLogin
 from dto.common_response import CommonResponse
-from exept.exeptions import DatabaseConnectionError, CustomQSportException
+from exept.exeptions import DatabaseConnectionError, CustomQSportException, InvalidRefreshTokenError
 from exept.handle_exeptions import get_custom_error_response, handle_exceptions
 from logger.logger import Logger
 from dependency_injector.wiring import inject, Provide
@@ -156,4 +156,5 @@ async def refresh(service: UserService = Provide[Container.user_service]):
         
     except CustomQSportException as e:
         logger.error(f"Error in POST /refresh: {str(e)}")
+        InvalidRefreshTokenError("Refresh token is not valid")
         return get_custom_error_response(e)
