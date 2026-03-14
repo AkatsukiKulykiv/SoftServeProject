@@ -145,6 +145,11 @@ class OutputArrayOfArticles(Schema):
     news = fields.Nested(OutputArticle)
 
 
+class OutputInteractions(Schema):
+    likes = fields.Int(required=True)
+    views = fields.Int(required=True)
+
+
 class TempSubscriberDataDto(Schema):
     team_ids: int
     subscriber_emails: str
@@ -158,6 +163,15 @@ class TempSubscriberDataDto(Schema):
         self.subscriber_emails = subscriber_emails
         self.news_name = news_name
         self.username = username
+
+
+class OutputComment(Schema):
+    comment_id = fields.Int(required=True)
+    user_id = fields.Int(required=True)
+    username = fields.Str(required=True)
+    content = fields.Str(required=True)
+    timestamp = fields.DateTime(required=True)
+    parent_comment_id = fields.Int(required=False)
 
 
 def get_script_phrases():
@@ -217,6 +231,7 @@ def get_script_phrases():
         "tags":               _("Tags:"),
         "select_sport":       _("Select sport"),
         "teams":              _("teams"),
+        "search":             _("Search"),
 
         # Додаткові опції
         "first_option":       _("Option 1"),
@@ -225,7 +240,7 @@ def get_script_phrases():
         "sort":               _("Sort by:"),
         "more":               _("more..."),
         "continue":           _("Continue?"),
-        "search":             _("Search"),
+        "search_page":        _("SearchPage"),
         "all":                _("All"),
         "recommend_pref":     _("Recommended news by your Preferences"),
         "news_not_found":     _("No latest news were found"),
@@ -234,5 +249,6 @@ def get_script_phrases():
         "select_country":     _("Select a country..."),
         "apply_filters":      _("Apply Filters"),
         "search_name":        _("Search by name..."),
+        "close_filters":      _("Close Filters")
     }
 
